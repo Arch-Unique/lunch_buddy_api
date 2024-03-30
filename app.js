@@ -3,7 +3,7 @@ const bodyParser = require('body-parser');
 const { Sequelize, Model, DataTypes } = require('sequelize');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 8080;
 
 // Create Sequelize instance
 const sequelize = new Sequelize({
