@@ -87,10 +87,21 @@ app.use(bodyParser.json());
 //   }
 // });
 
+app.get('/eateries', async (req, res) => {
+  try {
+    const existingEateries = await Eatery.findAll();
+
+    res.status(200).json(existingEateries);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 // Add bulk eateries (only if they don't exist)
 app.post('/eateries/bulk', async (req, res) => {
     try {
-      const eateryNames = req.body.eateryNames;
+      const eateryNames = req.body.eateries;
       const existingEateries = await Eatery.findAll({
         where: {
           name: eateryNames,
@@ -106,7 +117,7 @@ app.post('/eateries/bulk', async (req, res) => {
         newEateryNames.map((name) => ({ name }))
       );
   
-      res.status(200).json({ newEateries });
+      res.status(200).json(newEateries);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -115,7 +126,7 @@ app.post('/eateries/bulk', async (req, res) => {
   // Delete bulk eateries
 app.delete('/eateries/bulk', async (req, res) => {
     try {
-      const eateryNames = req.body.eateryNames;
+      const eateryNames = req.body.eateries;
       const deletedCount = await Eatery.destroy({
         where: {
           name: eateryNames,
@@ -158,7 +169,7 @@ app.delete('/eateries/bulk', async (req, res) => {
         newSession = await Votesession.create({ user,votes,category:maxCategory });
       }
   
-      res.status(200).json({ newSession });
+      res.status(200).json(newSession);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -207,7 +218,7 @@ app.delete('/eateries/bulk', async (req, res) => {
         .map(([vote, score]) => `${vote}: ${score}`);
       
       console.log(sortedVoteCounts);
-      res.status(200).json({ sortedVoteCounts });
+      res.status(200).json(sortedVoteCounts);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
