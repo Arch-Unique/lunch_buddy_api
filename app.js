@@ -196,9 +196,10 @@ app.delete('/eateries/bulk', async (req, res) => {
       const voteSessions = await Votesession.findAll({
         where: {
           category: maxCategory
-        },
-        attributes: ['votes']
+        }
       });
+
+      const users = voteSessions.map(session => session.user);
       
       const scoredVotes = voteSessions.flatMap(session => {
         const votes = session.votes.split(',');
@@ -218,7 +219,7 @@ app.delete('/eateries/bulk', async (req, res) => {
         .map(([vote, score]) => `${vote}: ${score}`);
       
       console.log(sortedVoteCounts);
-      res.status(200).json(sortedVoteCounts);
+      res.status(200).json({users, votes: sortedVoteCounts});
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
