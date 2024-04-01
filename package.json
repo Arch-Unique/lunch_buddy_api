@@ -9,7 +9,9 @@
   "author": "archyuniq",
   "license": "ISC",
   "dependencies": {
+    "@cyclic.sh/dynamodb": "^0.0.35",
     "express": "^4.19.2",
+    "mongoose": "^8.2.4",
     "sequelize": "^6.37.2",
     "sqlite3": "^5.1.7"
   }

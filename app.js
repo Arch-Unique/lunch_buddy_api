@@ -1,229 +1,160 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const { Sequelize, Model, DataTypes } = require('sequelize');
+const mongoose = require('mongoose');
 
 const app = express();
 const port = process.env.PORT || 8080;
 
-// Create Sequelize instance
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: './db.sqlite'
+
+const mongodbUrl = "mongodb+srv://ikennaidigo:VWDksZCI6dVMAJtp@lunchcluster.jvg2fmg.mongodb.net/?retryWrites=true&w=majority&appName=lunchcluster";
+mongoose.connect(mongodbUrl, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((error) => console.error('Error connecting to MongoDB:', error));
+
+// Define Eatery schema and model
+const EaterySchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    unique: true,
+  },
 });
 
-// Define User model
-// class User extends Model {}
-// User.init({
-//   name: DataTypes.STRING,
-//   id: {
-//     type:DataTypes.STRING
-//   },
-//   password: DataTypes.STRING
-// }, { sequelize, modelName: 'user' });
+const Eatery = mongoose.model('Eatery', EaterySchema);
 
-class Eatery extends Model {}
-Eatery.init({
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    primaryKey: true,
-  },
-}, { sequelize, modelName: 'eatery' });
+// Define Votesession schema and model
+const VotesessionSchema = new mongoose.Schema({
+  user: String,
+  votes: String,
+  category: Number,
+});
 
-class Votesession extends Model {}
-Votesession.init({
-    id: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true
-      },
-      user: DataTypes.STRING,
-      votes: DataTypes.STRING,
-      category: DataTypes.INTEGER,
-
-}, { sequelize, modelName: 'votesession' });
-
-
-// Sync models with database
-sequelize.sync();
+const Votesession = mongoose.model('Votesession', VotesessionSchema);
 
 // Middleware for parsing request body
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-// CRUD routes for User model
-// app.get('/users', async (req, res) => {
-//   const users = await User.findAll();
-//   res.json(users);
-// });
-
-// app.get('/users/:id', async (req, res) => {
-//   const user = await User.findByPk(req.params.id);
-//   res.json(user);
-// });
-
-// app.post('/users', async (req, res) => {
-//   const user = await User.create(req.body);
-//   res.json(user);
-// });
-
-// app.put('/users/:id', async (req, res) => {
-//   const user = await User.findByPk(req.params.id);
-//   if (user) {
-//     await user.update(req.body);
-//     res.json(user);
-//   } else {
-//     res.status(404).json({ message: 'User not found' });
-//   }
-// });
-
-// app.delete('/users/:id', async (req, res) => {
-//   const user = await User.findByPk(req.params.id);
-//   if (user) {
-//     await user.destroy();
-//     res.json({ message: 'User deleted' });
-//   } else {
-//     res.status(404).json({ message: 'User not found' });
-//   }
-// });
-
 app.get('/eateries', async (req, res) => {
   try {
-    const existingEateries = await Eatery.findAll();
-
+    const existingEateries = await Eatery.find();
     res.status(200).json(existingEateries);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-
 // Add bulk eateries (only if they don't exist)
 app.post('/eateries/bulk', async (req, res) => {
-    try {
-      const eateryNames = req.body.eateries;
-      const existingEateries = await Eatery.findAll({
-        where: {
-          name: eateryNames,
-        },
-      });
-  
-      const existingEateryNames = existingEateries.map((eatery) => eatery.name);
-      const newEateryNames = eateryNames.filter(
-        (name) => !existingEateryNames.includes(name)
-      );
-  
-      const newEateries = await Eatery.bulkCreate(
-        newEateryNames.map((name) => ({ name }))
-      );
-  
-      res.status(200).json(newEateries);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  });
+  try {
+    const eateryNames = req.body.eateries;
+    const existingEateries = await Eatery.find({ name: { $in: eateryNames } });
+    const existingEateryNames = existingEateries.map((eatery) => eatery.name);
+    const newEateryNames = eateryNames.filter(
+      (name) => !existingEateryNames.includes(name)
+    );
 
-  // Delete bulk eateries
+    const newEateries = await Eatery.insertMany(
+      newEateryNames.map((name) => ({ name }))
+    );
+
+    res.status(200).json(newEateries);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete bulk eateries
 app.delete('/eateries/bulk', async (req, res) => {
-    try {
-      const eateryNames = req.body.eateries;
-      const deletedCount = await Eatery.destroy({
-        where: {
-          name: eateryNames,
-        },
-      });
-  
-      res.status(200).json({ deletedCount });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+  try {
+    const eateryNames = req.body.eateries;
+    const deletedCount = await Eatery.deleteMany({ name: { $in: eateryNames } });
+
+    res.status(200).json({ deletedCount: deletedCount.deletedCount });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/votesessions', async (req, res) => {
+  try {
+    const { user, votes } = req.body;
+
+    const maxCategory = await Votesession.aggregate([
+        { $group: { _id: null, maxCategory: { $max: "$category" } } }
+      ])
+      .then(result => result.length > 0 ? result[0].maxCategory : 1);
+
+    const sessions = await Votesession.find({ category: maxCategory });
+
+    let newSession;
+    if (sessions.length === 0) {
+      newSession = await Votesession.create({ user, votes, category: maxCategory });
+    } else if (sessions.length === 1) {
+      if (sessions[0].user !== user) {
+        newSession = await Votesession.create({ user, votes, category: maxCategory });
+      } else {
+        newSession = sessions[0];
+      }
+    } else if (sessions.length === 2) {
+      newSession = await Votesession.create({ user, votes, category: maxCategory + 1 });
     }
-  });
 
-  app.post('/votesessions', async (req, res) => {
-    try {
-      const { user, votes } = req.body;
+    res.status(200).json(newSession);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
-      let maxCategory = await Votesession.max('category');
+app.get('/votesessions/:id?', async (req, res) => {
+  try {
+    const id = req.params.id;
+    let maxCategory = await Votesession.aggregate([
+        { $group: { _id: null, maxCategory: { $max: "$category" } } }
+      ])
+      .then(result => result.length > 0 ? result[0].maxCategory : 0);
 
-      if(maxCategory == null){
-        maxCategory = 1;
-      }
-
-      const sessions = await Votesession.findAll({
-          where:{
-            category: maxCategory
-          }
-      });
-
-      let newSession;
-      if (sessions.length == 0){
-        newSession = await Votesession.create({ user,votes,category:maxCategory });
-      }else if(sessions.length == 1){
-        if(sessions[0].user != user){
-            newSession = await Votesession.create({ user,votes,category:maxCategory });
-        }else{
-            newSession = sessions[0];
-        }
-      }else if(sessions.length == 2){
-        maxCategory += 1;
-        newSession = await Votesession.create({ user,votes,category:maxCategory });
-      }
-  
-      res.status(200).json(newSession);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+    if (maxCategory === 0) {
+      return res.status(404).json({ error: "Not Found" });
     }
-  });
 
-  app.get('/votesessions/:id?', async (req, res) => {
-    try {
-        let id = req.params.id;
-      let maxCategory = await Votesession.max('category');
-
-      if(maxCategory == null){
-        return res.status(404).json({error: "Not Found"});
+    if (id) {
+      if (maxCategory === 1) {
+        return res.status(404).json({ error: "Not Found" });
+      } else {
+        maxCategory -= 1;
       }
-
-      if(id){
-        if(maxCategory-1 == 0){
-            return res.status(404).json({error: "Not Found"});
-        }else{
-            maxCategory -= 1;
-        }
-      }
-
-
-      const voteSessions = await Votesession.findAll({
-        where: {
-          category: maxCategory
-        }
-      });
-
-      const users = voteSessions.map(session => session.user);
-      
-      const scoredVotes = voteSessions.flatMap(session => {
-        const votes = session.votes.split(',');
-        return votes.map((vote, index) => ({
-          vote,
-          score: votes.length - index
-        }));
-      });
-      
-      const voteCounts = scoredVotes.reduce((counts, { vote, score }) => {
-        counts[vote] = (counts[vote] || 0) + score;
-        return counts;
-      }, {});
-      
-      const sortedVoteCounts = Object.entries(voteCounts)
-        .sort((a, b) => b[1] - a[1])
-        .map(([vote, score]) => `${vote}: ${score}`);
-      
-      console.log(sortedVoteCounts);
-      res.status(200).json({users, votes: sortedVoteCounts});
-    } catch (error) {
-      res.status(500).json({ error: error.message });
     }
-  });
+
+    const voteSessions = await Votesession.find({ category: maxCategory });
+
+    const users = voteSessions.map((session) => session.user);
+
+    const scoredVotes = voteSessions.flatMap((session) => {
+      const votes = session.votes.split(',');
+      return votes.map((vote, index) => ({
+        vote,
+        score: votes.length - index,
+      }));
+    });
+
+    const voteCounts = scoredVotes.reduce((counts, { vote, score }) => {
+      counts[vote] = (counts[vote] || 0) + score;
+      return counts;
+    }, {});
+
+    const sortedVoteCounts = Object.entries(voteCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([vote, score]) => `${vote}: ${score}`);
+
+    res.status(200).json({ users, votes: sortedVoteCounts });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Start server
 app.listen(port, () => {
