@@ -133,6 +133,10 @@ app.get('/votesessions/:id?', async (req, res) => {
 
     const users = voteSessions.map((session) => session.user);
 
+    const allVotes = voteSessions.flatMap((session) => session.votes.split(','));
+
+    // if(allVotes.length)
+
     const scoredVotes = voteSessions.flatMap((session) => {
       const votes = session.votes.split(',');
       return votes.map((vote, index) => ({
@@ -142,7 +146,12 @@ app.get('/votesessions/:id?', async (req, res) => {
     });
 
     const voteCounts = scoredVotes.reduce((counts, { vote, score }) => {
-      counts[vote] = (counts[vote] || 0) + score;
+      if(counts[vote]){
+        counts[vote] += (score+5);
+      }else{
+        counts[vote] = score;
+      }
+      // counts[vote] = (counts[vote] || 0) + score;
       return counts;
     }, {});
 
