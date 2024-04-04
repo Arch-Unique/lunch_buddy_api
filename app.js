@@ -40,7 +40,7 @@ app.use(bodyParser.json());
 
 app.get('/eateries', async (req, res) => {
   try {
-    const existingEateries = await Eatery.find();
+    const existingEateries = await Eatery.find().sort({ name: 1 });;
     res.status(200).json(existingEateries);
   } catch (error) {
     res.status(500).json({ error: error.message });
